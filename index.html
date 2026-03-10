@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Undertale Messenger - Pro Edition</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap');
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            background-color: #000;
+            color: #fff;
+            font-family: 'Courier Prime', monospace;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .app-shell {
+            width: 100%;
+            max-width: 450px; /* Biraz daha dar, daha mobil/yakın görünüm */
+            height: 90vh;
+            background: #000;
+            border: 4px solid #fff;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            box-shadow: 0 0 20px rgba(255,255,255,0.1);
+        }
+
+        .app-header {
+            padding: 15px;
+            background: #000;
+            border-bottom: 4px solid #fff;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: #fff;
+            letter-spacing: 4px;
+        }
+
+        #char-selection {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .char-item {
+            background: #000;
+            border: 2px solid #555;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: 0.2s;
+            font-size: 14px;
+        }
+
+        .char-item:hover {
+            border-color: #ffff00;
+            color: #ffff00;
+            transform: scale(1.02);
+        }
+
+        #chat-screen {
+            display: none;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .chat-header {
+            padding: 12px;
+            background: #000;
+            display: flex;
+            align-items: center;
+            border-bottom: 2px solid #fff;
+        }
+
+        .back-btn { cursor: pointer; margin-right: 15px; font-size: 24px; color: #ffff00; }
+
+        /* Butonlar Üstte */
+        .chat-input-area {
+            padding: 12px;
+            background: #000;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            border-bottom: 2px solid #333; /* Mesajların üstünde kalsın diye alta çizgi */
+            justify-content: center;
+        }
+
+        /* Mesaj Alanı Altta ve Daha Yakın */
+        .chat-messages {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background: #050505;
+            font-size: 18px; /* Yazılar daha büyük/yakın */
+        }
+
+        .msg {
+            max-width: 85%;
+            padding: 10px 14px;
+            border-radius: 4px;
+            line-height: 1.3;
+        }
+
+        .msg.bot { align-self: flex-start; border-left: 4px solid #fff; background: #111; }
+        .msg.user { align-self: flex-end; color: #ffff00; text-align: right; }
+
+        .action-btn {
+            background: #000;
+            color: #ff9d00;
+            border: 2px solid #ff9d00;
+            padding: 6px 10px;
+            cursor: pointer;
+            font-size: 13px;
+            font-family: inherit;
+        }
+
+        .action-btn:hover { background: #ff9d00; color: #000; }
+        .act-sub-btn { border-color: #00ffff; color: #00ffff; }
+        .act-sub-btn:hover { background: #00ffff; color: #000; }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-8px); }
+            75% { transform: translateX(8px); }
+        }
+        .shake { animation: shake 0.15s ease-in-out 0s 3; }
+    </style>
+</head>
+<body>
+
+<div class="app-shell">
+    <div class="app-header" id="main-title">PERSONEL</div>
+    
+    <div id="char-selection"></div>
+
+    <div id="chat-screen">
+        <div class="chat-header">
+            <span class="back-btn" onclick="closeChat()">♥</span>
+            <span id="current-char-name">İsim</span>
+        </div>
+        
+        <div class="chat-input-area" id="actions"></div>
+
+        <div class="chat-messages" id="chat-flow"></div>
+    </div>
+</div>
+
+<script>
+    const characters = [
+        { 
+            name: "Sans", type: "jester", 
+            intro: "* n'aber. her şey yolunda mı?", 
+            joke: "* iskeletler neden şömineyi sevmez? kemikleri 'çıtır'dayınca yanlış anlaşılıyorlar. hehehe.",
+            acts: [
+                { label: "KETÇAP VER", response: "* Sans bir şişe ketçap içti. 'canlandırıcı' dedi." },
+                { label: "GÖZ KIRP", response: "* Sans sana göz kırptı. ya da zaten hep öyle mi duruyor?" },
+                { label: "KÖTÜ ZAMAN", response: "* Sans'ın gözü bir an parladı. 'dikkatli ol' diyor." }
+            ]
+        },
+        { 
+            name: "Papyrus", type: "jester", 
+            intro: "İNSAN! MUHTEŞEM PAPYRUS'UN MESAJ KUTUSUNA DÜŞTÜN!", 
+            joke: "BİR İSKELET NEDEN GÜLMEKTEN ÖLMEZ? ÇÜNKÜ İÇİNDE GÜLECEK BİR CİĞERİ YOKTUR! NYEH HEH HEH!",
+            acts: [
+                { label: "SPAGETTİ", response: "* Papyrus hemen bir tabak çıkardı. tadı... ilginç." },
+                { label: "PAZI GÖSTER", response: "* Papyrus daha büyük bir pazı gösterdi. kaybettiğini biliyorsun." },
+                { label: "BULMACA İSTE", response: "* Sana üzerine ketçap dökülmüş bir gazete kağıdı verdi." }
+            ]
+        },
+        { 
+            name: "Spamton", type: "jester", 
+            intro: "HEY [[Değerli Müşteri]]! [Büyük Bir Atış] YAPMAK MI İSTİYORSUN?", 
+            joke: "BİR [[Satış Elemanı]] NEDEN KARŞIDAN KARŞIYA GEÇMİŞ? ÇÜNKÜ DİĞER TARAFTA [Yarım Fiyatına Ruh] VARDI!",
+            acts: [
+                { label: "KROMER VER", response: "* [Kromer] kabul edildi! Artık bir [Büyük Atış] sahibisin!" },
+                { label: "TELEFONU KAPAT", response: "* Spamton statik sesler çıkarıyor. [[Hata]] [[Hata]]" }
+            ]
+        },
+        { 
+            name: "Jevil", type: "jester", 
+            intro: "TEKERLEK DÖNÜYOR! HER ŞEY KAOS, KAOS!", 
+            joke: "HERKES KENDİ HÜCRESİNDE, BEN BURADA ÖZGÜRÜM!",
+            acts: [
+                { label: "DÖN", response: "* Jevil ile beraber dönüyorsun. Dünya başını döndürüyor." },
+                { label: "OYUN OYNA", response: "* Jevil bıçaklarını havaya attı. 'Şanslı mısın?' diye sordu." }
+            ]
+        },
+        { 
+            name: "Asgore", type: "serious", 
+            intro: "Merhaba küçük olan. Bir fincan çaya ne dersin?", 
+            tea: "Altın çiçek çayı... Her zaman sakinleştirir.",
+            confide: "Krallık bazen çok ağır bir yük olabiliyor.",
+            acts: [
+                { label: "TESELLİ ET", response: "* Asgore'un gözleri doldu. 'Teşekkürler evlat' dedi." },
+                { label: "SAVAŞMAYI REDDET", response: "* Asgore başını öne eğdi. 'Keşke başka bir yolu olsaydı' diyor." }
+            ]
+        },
+        { 
+            name: "King", type: "serious", 
+            intro: "Işık saçanların burada yeri yok. Neden yazdın?", 
+            joke: "Gülmek zayıflıktır.",
+            confide: "Hükmetmek fedakarlık ister.",
+            acts: [
+                { label: "MEYDAN OKU", response: "* Kral kükredi. 'Küstahça bir davranış!'" },
+                { label: "ZİNCİRLERİ KONTROL ET", response: "* Zincirler sıkıca bağlı. Kaçış yok." }
+            ]
+        },
+        { 
+            name: "Flowey", type: "serious", 
+            intro: "Ne kadar aptalsın... Hala burada mısın?", 
+            tea: "Çiçeklerin çay içtiğini mi sanıyorsun? Ahmak.",
+            acts: [
+                { label: "DOSTLUK TOHUMU", response: "* Flowey sana bir mermi fırlattı. 'Buna mı diyorsun?'" },
+                { label: "YÜZÜNE GÜL", response: "* Flowey korkutucu bir surat ifadesi takındı." }
+            ]
+        },
+        { 
+            name: "Gerson", type: "respectable", 
+            intro: "Wa-ha-ha! Eski bir kaplumbağayı ziyarete mi geldin?", 
+            respect: "Hürmetin karşılıksız kalmaz evlat.",
+            acts: [
+                { label: "HİKAYE DİNLE", response: "* Gerson sana savaştan kalma eski bir hikaye anlattı." },
+                { label: "ANTİKA AL", response: "* 'Bu paslı bir kılıç ama hala ruhu var!'" }
+            ]
+        }
+    ];
+
+    const selectionGrid = document.getElementById('char-selection');
+    const chatScreen = document.getElementById('chat-screen');
+    const chatFlow = document.getElementById('chat-flow');
+    const actionsArea = document.getElementById('actions');
+    const mainTitle = document.getElementById('main-title');
+
+    characters.forEach(char => {
+        const div = document.createElement('div');
+        div.className = 'char-item';
+        div.innerText = char.name;
+        div.onclick = () => openChat(char);
+        selectionGrid.appendChild(div);
+    });
+
+    function openChat(char) {
+        selectionGrid.style.display = 'none';
+        mainTitle.style.display = 'none';
+        chatScreen.style.display = 'flex';
+        document.getElementById('current-char-name').innerText = char.name;
+        chatFlow.innerHTML = "";
+        addMessage(char.intro, 'bot');
+        showMainButtons(char);
+    }
+
+    function showMainButtons(char) {
+        actionsArea.innerHTML = "";
+        
+        createBtn("FIGHT", () => {
+            addMessage("* Saldırmayı denedin...", 'user');
+            setTimeout(() => {
+                chatFlow.classList.add('shake');
+                addMessage("* Iskaladın! " + char.name + " çevikçe kaçtı.", 'bot');
+                setTimeout(() => chatFlow.classList.remove('shake'), 300);
+            }, 500);
+        });
+
+        createBtn("ACT", () => showActSubMenu(char));
+
+        if (char.type !== "respectable") {
+            createBtn("ITEM", () => {
+                addMessage("* 'Kararlı Turta' yedin. HP doldu!", 'user');
+            });
+        }
+
+        createBtn("MERCY", () => {
+            addMessage("* Bağışlamayı denedin...", 'user');
+            setTimeout(() => addMessage("* Ama " + char.name + " henüz pes etmedi.", 'bot'), 600);
+        });
+    }
+
+    function showActSubMenu(char) {
+        actionsArea.innerHTML = "";
+        
+        // Geri butonu
+        const back = document.createElement('button');
+        back.className = 'action-btn';
+        back.innerText = "< GERİ";
+        back.onclick = () => showMainButtons(char);
+        actionsArea.appendChild(back);
+
+        // Karaktere özel ACT'leri ekle
+        if (char.acts) {
+            char.acts.forEach(act => {
+                createBtn(act.label, () => {
+                    addMessage("* " + act.label, 'user');
+                    setTimeout(() => addMessage(act.response, 'bot'), 600);
+                }, "act-sub-btn");
+            });
+        } else {
+            // Klasik seçenekler (Eğer acts dizisi yoksa eskileri kullan)
+            createBtn("ŞAKA", () => { addMessage("Şaka yap!", 'user'); setTimeout(() => addMessage(char.joke || "...", 'bot'), 600); });
+            createBtn("ÇAY", () => { addMessage("Çay var mı?", 'user'); setTimeout(() => addMessage(char.tea || "Hayır.", 'bot'), 600); });
+        }
+    }
+
+    function createBtn(text, action, extraClass = "") {
+        const b = document.createElement('button');
+        b.className = 'action-btn ' + extraClass;
+        b.innerText = text;
+        b.onclick = action;
+        actionsArea.appendChild(b);
+    }
+
+    function addMessage(text, sender) {
+        const m = document.createElement('div');
+        m.className = `msg ${sender}`;
+        m.innerText = text;
+        chatFlow.appendChild(m);
+        chatFlow.scrollTop = chatFlow.scrollHeight;
+    }
+
+    function closeChat() {
+        chatScreen.style.display = 'none';
+        selectionGrid.style.display = 'grid';
+        mainTitle.style.display = 'block';
+    }
+</script>
+
+</body>
+</html>
