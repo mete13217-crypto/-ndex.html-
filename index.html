@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ROARING SINS: VARIETY EDITION</title>
+    <style>
+        @font-face { font-family: 'Pixel'; src: url('https://fonts.cdnfonts.com/s/16218/DeterminationMonoWeb.woff') format('woff'); }
+        :root { --main: #fff; --bg: #000; --accent: #ff69b4; }
+        body, html { margin: 0; padding: 0; height: 100%; background: var(--bg); color: white; font-family: 'Pixel', sans-serif; overflow: hidden; }
+        
+        #chat-window { height: calc(100vh - 240px); overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 12px; background: #050505; scroll-behavior: smooth; border-bottom: 2px solid #222; }
+        .msg { max-width: 85%; padding: 12px; border: 2px solid #fff; border-radius: 8px; font-size: 0.85rem; line-height: 1.4; animation: fadeIn 0.3s; }
+        .bot { align-self: flex-start; border-color: var(--accent); background: #120012; }
+        .user { align-self: flex-end; border-color: #555; background: #1a1a1a; }
+
+        .panel { position: fixed; bottom: 0; left: 0; right: 0; background: #000; border-top: 4px solid var(--accent); padding: 10px; height: 180px; z-index: 100; }
+        #stats { display: flex; justify-content: space-between; padding: 10px; border-bottom: 2px solid #333; font-size: 0.75rem; background: #000; color: var(--accent); }
+        
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+        .btn { background: #000; color: #fff; border: 2px solid #fff; padding: 8px; cursor: pointer; font-family: 'Pixel'; font-size: 0.65rem; text-transform: uppercase; }
+        .btn:active { background: #fff; color: #000; }
+        
+        .btn-tg { border-color: #24A1DE !important; color: #24A1DE !important; }
+        .btn-r34 { border-color: #ff9000 !important; color: #ff9000 !important; }
+        .btn-show { border-color: #00ff00 !important; color: #00ff00 !important; }
+
+        #selector, #joke-modal { position: fixed; inset: 0; background: #000; z-index: 2000; padding: 20px; overflow-y: auto; text-align: center; }
+        #joke-modal { display: none; }
+        .char-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 15px; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+<div id="selector">
+    <h1 style="color: #ff00ff; text-shadow: 2px 2px #00ffff; font-size: 1.5rem;">ROARING SINS: GIRLS</h1>
+    <div class="char-grid" id="char-list"></div>
+</div>
+
+<div id="stats">
+    <div id="st-name">NAME: -</div>
+    <div id="st-rel">SEVGİLİ: HAYIR</div>
+    <div id="st-meters">L:0% | LV:0% | H:0%</div>
+</div>
+
+<div id="chat-window"></div>
+
+<div class="panel">
+    <div id="dynamic-actions" class="grid"></div>
+</div>
+
+<div id="joke-modal">
+    <h2 id="modal-title" style="color:yellow;">SELECTOR</h2>
+    <div id="modal-desc" style="margin-bottom:10px; font-size:0.8rem;"></div>
+    <div id="modal-input-area" style="display:none; margin-bottom:15px;">
+        <input type="number" id="size-input" min="1" max="99" style="background:#000; color:#0f0; border:2px solid #0f0; padding:8px; font-family:'Pixel'; width:80px; text-align:center;" placeholder="cm">
+        <br><br>
+        <button class="btn btn-show" style="width: 100%;" onclick="submitSize()">GÖSTER</button>
+    </div>
+    <div class="char-grid" id="modal-content"></div>
+    <button class="btn" style="margin-top:20px; width:100%; border-color: red; color: red;" onclick="closeModals()">İPTAL</button>
+</div>
+
+<script>
+const DIALOGUE_BANK = {
+    Nazik: {
+        "Dokun": ["U-um... Bu kadar yakın olmamız normal mi? (Kızarır)", "Ellerin çok sıcak Kris...", "Lütfen, nazik olmaya çalış.", "Kalbimin atışını duyabiliyor musun?", "Bu... garip hissettiriyor ama kötü değil."],
+        "Flört": ["Sen benim dünyamı aydınlatıyorsun.", "Böyle konuşman beni çok utandırıyor...", "Gerçekten böyle mi düşünüyorsun?", "Seninleyken kendimi güvende hissediyorum.", "Gülüşün çok tatlı..."],
+        "Öp": ["Dudakların... pamuk şekeri gibi.", "*Sana karşılık verirken gözlerini kapatıyor.*", "Bu ilk seferimiz mi?", "Beni hiç bırakma olur mu?", "Seni her şeyden çok seviyorum."],
+        "Sarıl": ["Sımsıcak kucaklaşman her şeye değer.", "Kokun huzur veriyor.", "Seni asla bırakmak istemiyorum.", "Sana sarılmak bütün dertlerimi unutturuyor.", "Daha sık sarılmalıyız."],
+        "Ağzına Alma": ["Tadı... beklediğimden çok daha yoğun.", "(Gok gok)... senin için her şeyi yaparım.", "Bunu gerçekten çok istiyorsun değil mi?", "Öhö... biraz derine gittim galiba.", "Seni mutlu etmek beni de mutlu ediyor."],
+        "Sokmalı": ["Lütfen... canımı yakma Kris.", "İçimdeki bu doluluk hissi... muazzam.", "Seninle bir bütün olmak harika.", "Daha hızlı... hayır, tam böyle devam et!", "Sen benim kahramanımsın."],
+        "Ayakta": ["Bacaklarım titriyor ama dayanabilirim.", "Düşeceğim sandım! Sıkı tut beni.", "Bu pozisyon çok heyecan verici.", "Duvara yaslanmak... çok ateşli.", "Nefes nefese kaldım..."],
+        "Oturarak": ["Böyle daha rahat değil mi bebeğim?", "Gözlerinin içine bakabilmek harika.", "Senin kucağında olmak en güvenli yer.", "Vücudun çok sıcak...", "Her saniyenin tadını çıkaralım."]
+    },
+    Kaba: {
+        "Dokun": ["Elini çek punk! Yoksa ısırırım!", "Ne o, kaşınıyor musun?", "Dokunma bana... şimdilik.", "Heh, ellerin titriyor. Korktun mu?", "Biraz daha yaklaşırsan seni duvara çarparım."],
+        "Flört": ["Aww seni ezik. Beni utandırdığını mı sanıyorsun?", "Daha iyisini yapabilirsin ahbap.", "Heh, fena değil. Ama ben daha iyiyim.", "Beni tavlamaya çalışma, vaktimi çalma.", "Seni ilginç kılan tek şey bu cesaretin."],
+        "Öp": ["Aww ağzın çöplük kokuyor HAHAHA!", "Fena değil, ama dişlerime dikkat et.", "Daha sert olmanı beklerdim.", "Heh, nefesin kesildi bakıyorum?", "Şanslı günündesin punk."],
+        "Sarıl": ["Doğru yaptın, tam da bunu bekliyordum.", "Sıkma beni o kadar, kemiklerimi kıracaksın!", "Hadi, çabuk bitir şu işi.", "Sıcakmışsın... sadece birazcık.", "Beni yumuşatabileceğini mi sanıyorsun?"],
+        "Ağzına Alma": ["(Gok gok) heh bu kadar mı? Daha diplere sok!", "Umarım temizdir, yoksa koparırım!", "Heh, tepkilerin çok komik.", "Tadı iğrenç ama senin için katlanıyorum.", "Daha hızlı ol ezik!"],
+        "Sokmalı": ["Heh kolsuz musun? Tam deliği tuttursana!", "Daha sert! Beni duvara gömene kadar durma!", "Sonunda bir işe yaradın.", "Bağırmamı mı bekliyorsun? Daha çok çalışmalısın.", "İşte bu! Gerçek güç bu!"],
+        "Ayakta": ["Beni bu lanet koltuktan kurtar ve işini yap!", "Heh, bacakların mı yoruldu?", "Havada olmak... fena değilmiş.", "Daha yukarı kaldır beni!", "Güçlü olduğunu kanıtla."],
+        "Oturarak": ["Beni duvarda becermediğin için seni öveceğimi mi sandın?", "Rahatına düşkünsün bakıyorum?", "Kucağın çok sert, hoşuma gitti.", "Hadi, sallanma da işini yap.", "Seni izlemek eğlenceli."]
+    }
+};
+
+const ALL_CHARS = [
+    { n: "Toriel", c: "#ffffff", m: "Hoş geldin yavrum... 🍰", s: "Nazik" },
+    { n: "Susie", c: "#ff00ff", m: "Ne bakıyorsun punk? 😈", s: "Kaba" },
+    { n: "Ralsei", c: "#00ff00", m: "Selam Kris! ✨", s: "Nazik" },
+    { n: "Undyne", c: "#0066ff", m: "NGAAAAH! ⚔️", s: "Kaba" },
+    { n: "Alphys", c: "#ffff00", m: "U-um... Selam Kris. 😖", s: "Nazik" },
+    { n: "Tasque Manager", c: "#00ffff", m: "Order. ⚡", s: "Kaba" },
+    { n: "Mad Mew Mew", c: "#ff66cc", m: "MEW MEW! 😾", s: "Kaba" },
+    { n: "Muffet", c: "#9933ff", m: "Ahuhuhu... 🕸️", s: "Kaba" },
+    { n: "Ceroba", c: "#ff9933", m: "Oh... Hoş geldin. 🦊", s: "Nazik" },
+    { n: "Betty", c: "#ff0066", m: "Hehe... 😈", s: "Kaba" },
+    { n: "Chara", c: "#ff0000", m: "Heh. Partner? 🔪", s: "Kaba" },
+    { n: "Frisk", c: "#33ccff", m: "* Şefkatle bakıyor. 💙", s: "Nazik" },
+    { n: "Martlet", c: "#66ffff", m: "Oops! Selam! 🐦", s: "Nazik" }
+];
+
+let cur = null, love = 0, lust = 0, haz = 0, isSevgili = false;
+
+function saveGame() {
+    const saveData = { curName: cur.n, love, lust, haz, isSevgili };
+    localStorage.setItem('roaringSinsSave', JSON.stringify(saveData));
+}
+
+function loadGame() {
+    const saved = localStorage.getItem('roaringSinsSave');
+    if (saved) {
+        const data = JSON.parse(saved);
+        cur = ALL_CHARS.find(x => x.n === data.curName);
+        if (cur) {
+            love = data.love; lust = data.lust; haz = data.haz; isSevgili = data.isSevgili;
+            document.getElementById('selector').style.display = 'none';
+            document.documentElement.style.setProperty('--accent', cur.c);
+            document.getElementById('st-name').innerText = "NAME: " + cur.n;
+            addMsg("* Kayıt yüklendi.", 'bot');
+            renderMainPanel();
+            updateUI(false);
+        }
+    }
+}
+
+function loadCharacters() {
+    const list = document.getElementById('char-list');
+    list.innerHTML = "";
+    ALL_CHARS.forEach(char => {
+        list.innerHTML += `<button class="btn" style="border-color:${char.c}; color:${char.c}" onclick="start('${char.n}')">${char.n}</button>`;
+    });
+}
+
+function start(name) {
+    cur = ALL_CHARS.find(x => x.n === name);
+    document.getElementById('selector').style.display = 'none';
+    document.documentElement.style.setProperty('--accent', cur.c);
+    document.getElementById('st-name').innerText = "NAME: " + cur.n;
+    love = 0; lust = 0; haz = 0; isSevgili = false;
+    addMsg(cur.n + ": " + cur.m, 'bot');
+    renderMainPanel();
+    updateUI();
+}
+
+function renderMainPanel() {
+    const panel = document.getElementById('dynamic-actions');
+    panel.innerHTML = `
+        <button class="btn" onclick="openGirlMenu('ACT')">ACT</button>
+        <button class="btn" onclick="openGirlMenu('EXTRA')">EXTRA</button>
+        <button class="btn btn-show" onclick="openShowMenu()">GÖSTER</button>
+        <button class="btn btn-tg" onclick="window.open('https://t.me/+Zu1-BqdP2sNjZTE0')">TG</button>
+        <button class="btn btn-r34" onclick="window.open('https://rule34.xxx')">R34</button>
+        <button id="marry-btn" class="btn" style="color:cyan;" onclick="marry()">SEVGİLİ OL</button>
+        <button class="btn" onclick="talk()">KONUŞ</button>
+        <button class="btn" style="border-color: #555;" onclick="localStorage.removeItem('roaringSinsSave'); location.reload();">DEĞİŞTİR</button>
+    `;
+}
+
+function updateUI(shouldSave = true) {
+    document.getElementById('st-meters').innerText = `L:${lust}% | LV:${love}% | H:${haz}%`;
+    document.getElementById('st-rel').innerText = "SEVGİLİ: " + (isSevgili ? "EVET ❤️" : "HAYIR");
+    const mBtn = document.getElementById('marry-btn');
+    if(mBtn) mBtn.style.display = (love>=50 && !isSevgili) ? 'block' : 'none';
+    if(shouldSave && cur) saveGame();
+}
+
+function addMsg(t, type) {
+    const win = document.getElementById('chat-window');
+    const d = document.createElement('div');
+    d.className = `msg ${type}`;
+    d.innerText = t;
+    win.appendChild(d);
+    win.scrollTop = win.scrollHeight;
+}
+
+function openShowMenu() {
+    const modal = document.getElementById('joke-modal');
+    document.getElementById('modal-title').innerText = "GÖSTER";
+    document.getElementById('modal-desc').innerText = "Santimini gir bebeğim...";
+    document.getElementById('modal-input-area').style.display = 'block';
+    document.getElementById('modal-content').innerHTML = "";
+    modal.style.display = 'block';
+}
+
+function submitSize() {
+    const val = parseInt(document.getElementById('size-input').value);
+    if(isNaN(val)) return;
+    closeModals();
+    addMsg(`* (Knight ${val}cm olduğunu gösterdi.)`, 'user');
+    setTimeout(() => {
+        let resp = "";
+        if(val <= 12) {
+            resp = cur.s === "Nazik" ? "Küçük ama sevgi dolu... 😳" : "Bu ne? Kürdan mı? HAHAHA! 🤣";
+        } else if(val <= 18) {
+            resp = cur.s === "Nazik" ? "Tam ideal boyda Kris. ❤️" : "İş görür. Fena değil.";
+        } else {
+            resp = cur.s === "Nazik" ? "Aman Tanrım! Çok büyük! ✨" : "Vay canına... Bu devasa şeyle ne yapacaksın? 😈";
+            lust += 30;
+        }
+        addMsg(cur.n + ": " + resp, 'bot');
+        updateUI();
+    }, 600);
+}
+
+function openGirlMenu(type) {
+    const modal = document.getElementById('joke-modal');
+    const content = document.getElementById('modal-content');
+    document.getElementById('modal-title').innerText = type;
+    document.getElementById('modal-input-area').style.display = 'none';
+    modal.style.display = 'block';
+    content.innerHTML = "";
+    let opts = (type === 'ACT') ? ["Dokun", "Flört", "Sohbet", "Öp", "Sarıl"] : ["Ağzına Alma", "Sokmalı", "Ayakta", "Oturarak"];
+    if(type === 'EXTRA' && (!isSevgili || lust < 75)) {
+        content.innerHTML = "<p style='color:red;'>KİLİTLİ! (Sevgili & %75 Lust)</p>";
+        return;
+    }
+    opts.forEach(o => content.innerHTML += `<button class="btn" onclick="handleGirlAction('${o}')">${o}</button>`);
+}
+
+function handleGirlAction(opt) {
+    closeModals();
+    addMsg(`* (Knight ${opt} yaptı.)`, 'user');
+    setTimeout(() => {
+        const pool = DIALOGUE_BANK[cur.s][opt];
+        const randomResp = pool ? pool[Math.floor(Math.random() * pool.length)] : "...";
+        lust += 10; love += 5;
+        addMsg(cur.n + ": " + randomResp, 'bot');
+        updateUI();
+    }, 500);
+}
+
+function marry() { isSevgili = true; love = 100; addMsg(cur.n + ": Artık sevgiliz! ❤️", 'bot'); updateUI(); }
+function talk() { let p = prompt("Ne dersin?"); if(p) { addMsg("Knight: " + p, 'user'); addMsg(cur.n + ": İlginç bir fikir...", 'bot'); } }
+function closeModals() { document.getElementById('joke-modal').style.display = 'none'; }
+
+loadCharacters();
+loadGame();
+</script>
+</body>
+</html>
